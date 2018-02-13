@@ -15,7 +15,7 @@ define('DB_SERVER', 'localhost');
 define('DB_USERNAME', 'root');
 define('DB_PASSWORD', '');
 define('DB_DATABASE', 'expenset');
-define("BASE_URL", "http://localhost/apis/");
+define("BASE_URL", "http://localhost/expense_api/apis/");
 define("SITE_KEY", 'yourSecretKey');
 
 

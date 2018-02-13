@@ -103,7 +103,7 @@ function signup() {
                 $stmt1->execute();
                 
                 $userData=internalUserDetails($email);
-				sendOTP();
+				//sendOTP();
                 
             }
             
@@ -179,13 +179,14 @@ function email() {
 
 
 /* ### internal Username Details ### */
-function internalUserDetails($input) {
+function internalUserDetails($mobile,$code) {
     
     try {
         $db = getDB();
-        $sql = "SELECT user_id, name, email, username FROM users WHERE username=:input or email=:input";
+        $sql = "SELECT * FROM users WHERE mobile=:mobile AND code=:code";
         $stmt = $db->prepare($sql);
-        $stmt->bindParam("input", $input,PDO::PARAM_STR);
+        $stmt->bindParam("mobile", $mobile,PDO::PARAM_STR);
+        $stmt->bindParam("code", $code,PDO::PARAM_STR);
         $stmt->execute();
         $usernameDetails = $stmt->fetch(PDO::FETCH_OBJ);
         $usernameDetails->token = apiToken($usernameDetails->user_id);
@@ -197,21 +198,69 @@ function internalUserDetails($input) {
     }
     
 }
-function sendOTP(){
-	
-	$request = \Slim\Slim::getInstance()->request();
-    $data = json_decode($request->getBody());
-    $mobile=$data->mobile;
-    $code=$data->code;
-	$otp=rand(9999,rand(1000,9999));
-	$message="Your one time password for Paai Paai is $otp";
-	file_get_contents('http://api.msg91.com/api/sendhttp.php?sender=PAIPAI&route=4&mobiles='.$code.$mobile.'&authkey=136278ALa5maTJIwmn586ea1c2&country='.$code.'&message='.$message);
-	if(1){
-		echo '{"success":{"text":"Otp Sent"}}';
-	} else{
-		echo '{"error":{"text":"Failed to send otp"}}';
-	}
+
+function sendOTP() {
+   
+    try {
+        $request = \Slim\Slim::getInstance()->request();
+        $data = json_decode($request->getBody());
+        $mobile=$data->mobile;
+        $code=$data->code;
+        $otp=rand(9999,rand(1000,9999));
+        $message="Your one time password for PAIPAI is $otp";
+        $url='http://api.msg91.com/api/sendhttp.php?sender=PAIPAI&route=4&mobiles='.$code.$mobile.'&authkey=136278ALa5maTJIwmn586ea1c2&country='.$code.'&message='.$message;
+       
+        if (strlen(trim($mobile))>0 && strlen(trim($code))>0 && strlen(trim($otp))>0)
+        {
+           
+            $db = getDB();
+            $userData = '';
+            $sql = "SELECT user_id FROM users WHERE mobile=:mobile AND code=:code";
+            $stmt = $db->prepare($sql);
+            $stmt->bindParam("mobile", $mobile,PDO::PARAM_STR);
+            $stmt->bindParam("code", $code,PDO::PARAM_STR);
+            $stmt->execute();
+            $mainCount=$stmt->rowCount();
+            $created=time();
+            if($mainCount==0)
+            {
+                $sql1="INSERT INTO users(mobile,code,otp)VALUES(:mobile,:code,:otp)";
+                $stmt1 = $db->prepare($sql1);
+                $stmt1->bindParam("mobile", $mobile,PDO::PARAM_STR);
+                $stmt1->bindParam("code", $mobile,PDO::PARAM_STR);
+                $stmt1->bindParam("otp", $otp,PDO::PARAM_STR);
+                $stmt1->execute();
+                $data=file_get_contents('http://api.msg91.com/api/sendhttp.php?sender=PAIPAI&route=4&mobiles='.$code.$mobile.'&authkey=136278ALa5maTJIwmn586ea1c2&country='.$code.'&message='.$message);
+                $userData=internalUserDetails($mobile,$code);
+                
+            }else{
+                $sql = "UPDATE users SET otp=:otp WHERE mobile=:mobile AND code=:code";
+                $stmt = $db->prepare($sql);
+                $stmt->bindParam("otp", $otp, PDO::PARAM_STR);
+                $stmt->bindParam("mobile", $mobile, PDO::PARAM_STR);
+                $stmt->bindParam("code", $code, PDO::PARAM_STR);
+                $stmt->execute();
+                $data=file_get_contents('http://api.msg91.com/api/sendhttp.php?sender=PAIPAI&route=4&mobiles='.$code.$mobile.'&authkey=136278ALa5maTJIwmn586ea1c2&country='.$code.'&message='.$message);
+                $userData=internalUserDetails($mobile,$code);
+            }
+            
+            $db = null;
+            if($userData){
+               $userData = json_encode($userData);
+                echo '{"userData": ' .$userData . '}';
+            } else {
+               echo '{"error":{"text":"Enter valid data"}}';
+            }           
+        }
+        else{
+            echo '{"error":{"text":"Enter valid data"}}';
+        }
+    }
+    catch(PDOException $e) {
+        echo '{"error":{"text":'. $e->getMessage() .'}}';
+    }
 }
+
 
 function verifyOTP(){
 	
