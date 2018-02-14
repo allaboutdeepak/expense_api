@@ -189,6 +189,7 @@ function internalUserDetails($mobile,$code) {
         $stmt->bindParam("code", $code,PDO::PARAM_STR);
         $stmt->execute();
         $usernameDetails = $stmt->fetch(PDO::FETCH_OBJ);
+        //print_r( $usernameDetails);die;
         $usernameDetails->token = apiToken($usernameDetails->user_id);
         $db = null;
         return $usernameDetails;
@@ -227,10 +228,10 @@ function sendOTP() {
                 $sql1="INSERT INTO users(mobile,code,otp)VALUES(:mobile,:code,:otp)";
                 $stmt1 = $db->prepare($sql1);
                 $stmt1->bindParam("mobile", $mobile,PDO::PARAM_STR);
-                $stmt1->bindParam("code", $mobile,PDO::PARAM_STR);
+                $stmt1->bindParam("code", $code,PDO::PARAM_STR);
                 $stmt1->bindParam("otp", $otp,PDO::PARAM_STR);
                 $stmt1->execute();
-                $data=file_get_contents('http://api.msg91.com/api/sendhttp.php?sender=PAIPAI&route=4&mobiles='.$code.$mobile.'&authkey=136278ALa5maTJIwmn586ea1c2&country='.$code.'&message='.$message);
+               // $data=file_get_contents('http://api.msg91.com/api/sendhttp.php?sender=PAIPAI&route=4&mobiles='.$code.$mobile.'&authkey=136278ALa5maTJIwmn586ea1c2&country='.$code.'&message='.$message);
                 $userData=internalUserDetails($mobile,$code);
                 
             }else{
@@ -240,7 +241,7 @@ function sendOTP() {
                 $stmt->bindParam("mobile", $mobile, PDO::PARAM_STR);
                 $stmt->bindParam("code", $code, PDO::PARAM_STR);
                 $stmt->execute();
-                $data=file_get_contents('http://api.msg91.com/api/sendhttp.php?sender=PAIPAI&route=4&mobiles='.$code.$mobile.'&authkey=136278ALa5maTJIwmn586ea1c2&country='.$code.'&message='.$message);
+               // $data=file_get_contents('http://api.msg91.com/api/sendhttp.php?sender=PAIPAI&route=4&mobiles='.$code.$mobile.'&authkey=136278ALa5maTJIwmn586ea1c2&country='.$code.'&message='.$message);
                 $userData=internalUserDetails($mobile,$code);
             }
             
@@ -275,23 +276,29 @@ function verifyOTP(){
             $userData = '';
             $db = getDB();
           
-                $sql = "SELECT * FROM users";
+                $sql = "SELECT * FROM users where mobile=:mobile and otp=:otp";
                 $stmt = $db->prepare($sql);
                 $stmt->bindParam("mobile", $mobile, PDO::PARAM_STR);
                 $stmt->bindParam("otp", $otp, PDO::PARAM_STR);
 				$stmt->execute();
 				$mainCount=$stmt->rowCount();
-				$userData = $stmt->fetch(PDO::FETCH_OBJ);
+                $userData = $stmt->fetch(PDO::FETCH_OBJ);
 				if(!empty($userData))
 				{
 					$user_id=$userData->user_id;
-					$userData->token = apiToken($user_id);
+                    $userData->token = apiToken($user_id);
+                    $userData->otp_verified ="1";
+                    $sql2 = "UPDATE users SET otp_verified=:otp_verified WHERE user_id=:user_id";
+                    $stmt2 = $db->prepare($sql2);
+                    $stmt2->bindParam("otp_verified", $userData->otp_verified, PDO::PARAM_STR);
+                    $stmt2->bindParam("user_id", $user_id, PDO::PARAM_STR);
+                    $stmt2->execute();
 				}
-				$db = null;
+                $db = null;
 				if($userData)
 				echo '{"userData": ' . json_encode($userData) . '}';
 				else
-				echo '{"userData": ""}';
+				echo '{"userData": {"text":"Invalid otp","code":"201"}}';
 			} else{
 				echo '{"error":{"text":"No access"}}';
 			}
