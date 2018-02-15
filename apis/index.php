@@ -189,8 +189,8 @@ function internalUserDetails($mobile,$code) {
         $stmt->bindParam("code", $code,PDO::PARAM_STR);
         $stmt->execute();
         $usernameDetails = $stmt->fetch(PDO::FETCH_OBJ);
-        //print_r( $usernameDetails);die;
         $usernameDetails->token = apiToken($usernameDetails->user_id);
+        $usernameDetails->otp_requested="1";
         $db = null;
         return $usernameDetails;
         
@@ -223,23 +223,29 @@ function sendOTP() {
             $stmt->execute();
             $mainCount=$stmt->rowCount();
             $created=time();
+            $otp_requested=1;
+            $otp_verified=0;
             if($mainCount==0)
             {
-                $sql1="INSERT INTO users(mobile,code,otp)VALUES(:mobile,:code,:otp)";
+               
+                $sql1="INSERT INTO users(mobile,code,otp,otp_requested)VALUES(:mobile,:code,:otp,:otp_requested)";
                 $stmt1 = $db->prepare($sql1);
                 $stmt1->bindParam("mobile", $mobile,PDO::PARAM_STR);
                 $stmt1->bindParam("code", $code,PDO::PARAM_STR);
                 $stmt1->bindParam("otp", $otp,PDO::PARAM_STR);
+                $stmt1->bindParam("otp_requested", $otp_requested,PDO::PARAM_INT);
                 $stmt1->execute();
                // $data=file_get_contents('http://api.msg91.com/api/sendhttp.php?sender=PAIPAI&route=4&mobiles='.$code.$mobile.'&authkey=136278ALa5maTJIwmn586ea1c2&country='.$code.'&message='.$message);
                 $userData=internalUserDetails($mobile,$code);
                 
             }else{
-                $sql = "UPDATE users SET otp=:otp WHERE mobile=:mobile AND code=:code";
+                $sql = "UPDATE users SET otp = :otp,otp_requested=:otp_requested,otp_verified = :otp_verified  WHERE mobile = :mobile AND code = :code";
                 $stmt = $db->prepare($sql);
                 $stmt->bindParam("otp", $otp, PDO::PARAM_STR);
+                $stmt->bindParam("otp_requested", $otp_requested,PDO::PARAM_INT);
                 $stmt->bindParam("mobile", $mobile, PDO::PARAM_STR);
                 $stmt->bindParam("code", $code, PDO::PARAM_STR);
+                $stmt->bindParam("otp_verified", $otp_verified,PDO::PARAM_STR);
                 $stmt->execute();
                // $data=file_get_contents('http://api.msg91.com/api/sendhttp.php?sender=PAIPAI&route=4&mobiles='.$code.$mobile.'&authkey=136278ALa5maTJIwmn586ea1c2&country='.$code.'&message='.$message);
                 $userData=internalUserDetails($mobile,$code);
@@ -275,23 +281,26 @@ function verifyOTP(){
         if(1){
             $userData = '';
             $db = getDB();
-          
-                $sql = "SELECT * FROM users where mobile=:mobile and otp=:otp";
+                $otp_requested=1;
+                $sql = "SELECT * FROM users where mobile=:mobile and otp=:otp and otp_requested=:otp_requested";
                 $stmt = $db->prepare($sql);
                 $stmt->bindParam("mobile", $mobile, PDO::PARAM_STR);
                 $stmt->bindParam("otp", $otp, PDO::PARAM_STR);
+                $stmt->bindParam("otp_requested", $otp_requested,PDO::PARAM_INT);
 				$stmt->execute();
 				$mainCount=$stmt->rowCount();
                 $userData = $stmt->fetch(PDO::FETCH_OBJ);
 				if(!empty($userData))
 				{
+                    $reset_otp_requested=0;
 					$user_id=$userData->user_id;
                     $userData->token = apiToken($user_id);
                     $userData->otp_verified ="1";
-                    $sql2 = "UPDATE users SET otp_verified=:otp_verified WHERE user_id=:user_id";
+                    $sql2 = "UPDATE users SET otp_verified=:otp_verified,otp_requested=:otp_requested WHERE user_id=:user_id";
                     $stmt2 = $db->prepare($sql2);
                     $stmt2->bindParam("otp_verified", $userData->otp_verified, PDO::PARAM_STR);
                     $stmt2->bindParam("user_id", $user_id, PDO::PARAM_STR);
+                    $stmt2->bindParam("otp_requested", $reset_otp_requested,PDO::PARAM_INT);
                     $stmt2->execute();
 				}
                 $db = null;
